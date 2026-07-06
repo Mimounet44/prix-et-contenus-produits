@@ -440,6 +440,7 @@ var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_WEB=!!globalT
 
   <div class="actions">
     <button class="btn" id="startBtn">Démarrer le scan</button>
+    <button class="btn secondary" id="torchBtn" style="display:none; flex:0 0 auto; width:auto; padding:13px 18px;">💡</button>
   </div>
 
   <div class="manual-entry">
@@ -520,6 +521,7 @@ var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_WEB=!!globalT
 
   const statusEl = document.getElementById('status');
   const startBtn = document.getElementById('startBtn');
+  const torchBtn = document.getElementById('torchBtn');
   const scanZoneEl = document.getElementById('scanZone');
   const debugCanvas = document.getElementById('debugCanvas');
 
@@ -553,6 +555,8 @@ var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_WEB=!!globalT
       beepOnDetect: true,
       facingMode: 'environment',
       previewCanvas: debugCanvas, // affiche les 3 passes de rotation (0°, +30°, -30°)
+      scanRegion: { width: 0.88, height: 0.34 }, // zone de capture plus généreuse, plus tolérante au cadrage
+      resolutionScale: 2.2, // plus de netteté/résolution sur le code-barres
       onDetect: (result) => {
         onBarcodeDetected(result.data);
       },
@@ -575,6 +579,7 @@ var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_WEB=!!globalT
       } else {
         startBtn.textContent = 'Arrêter le scan';
         startBtn.classList.add('stop');
+        torchBtn.style.display = 'block';
         setStatus('Visez le code-barres, il sera détecté automatiquement…');
       }
     }catch(err){
@@ -589,8 +594,20 @@ var Module=typeof Module!="undefined"?Module:{};var ENVIRONMENT_IS_WEB=!!globalT
   function resetScanButtons(){
     startBtn.textContent = 'Démarrer le scan';
     startBtn.classList.remove('stop');
+    torchBtn.style.display = 'none';
     scanZoneEl.style.display = 'none';
   }
+
+  torchBtn.addEventListener('click', async () => {
+    if (!scanner || !scanner.isRunning) return;
+    try{
+      const on = await scanner.toggleTorch();
+      torchBtn.style.opacity = on ? '1' : '0.5';
+    }catch(err){
+      console.error('Torche indisponible :', err);
+      setStatus('Torche non disponible sur cet appareil.', true);
+    }
+  });
 
   function stopScan(){
     if (scanner){
