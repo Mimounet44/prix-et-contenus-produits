@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Scanner Courses — Prix &amp; Contenu</title>
 <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.1"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
 
@@ -530,6 +530,13 @@
 
   async function startScan(){
     if (scanning) return;
+
+    if (typeof ZXing === 'undefined' || typeof ZXingBrowser === 'undefined'){
+      setStatus('Erreur de chargement : la librairie de scan (ZXing) n\'a pas pu se charger. Vérifie ta connexion et recharge la page.', true);
+      console.error('ZXing défini ?', typeof ZXing, '— ZXingBrowser défini ?', typeof ZXingBrowser);
+      return;
+    }
+
     setStatus('Ouverture de la caméra…');
     document.getElementById('scanZone').style.display = 'block';
     scanGuide.style.display = 'block';
