@@ -435,7 +435,7 @@
   <div class="status" id="status"></div>
 
   <div class="debug-panel" id="debugPanel">
-    <div class="debug-row" style="color:#3c6b4a; font-weight:bold;">Version fichier : v8 (ZBar/WASM) — 2026-07-06</div>
+    <div class="debug-row" style="color:#3c6b4a; font-weight:bold;">Version fichier : v9 (correctif erreur) — 2026-07-06</div>
     <div class="debug-row">Ce que le décodeur analyse (3 passes : 0°, +30°, -30°) :</div>
     <canvas id="debugCanvas"></canvas>
   </div>
@@ -524,6 +524,13 @@
     setStatus('Ouverture de la caméra…');
     scanZoneEl.style.display = 'block';
     scanZoneEl.innerHTML = ''; // le moteur reconstruit sa propre vidéo/overlay à chaque démarrage
+    // Sécurité : forcer une hauteur explicite en pixels avant de démarrer, pour ne
+    // jamais dépendre du timing du calcul de mise en page (aspect-ratio CSS).
+    scanZoneEl.style.height = Math.round(scanZoneEl.getBoundingClientRect().width * 0.75) + 'px';
+    await new Promise(requestAnimationFrame); // laisse le navigateur appliquer la mise en page
+
+    let startupFailed = false;
+    let startupErrorMsg = '';
 
     scanner = new WebWasmBarcodeReader.BarcodeScanner({
       container: scanZoneEl,
@@ -535,22 +542,39 @@
         onBarcodeDetected(result.data);
       },
       onError: (err) => {
+        // Important : cette librairie appelle onError PUIS résout start() normalement,
+        // elle ne fait jamais échouer la promesse. On mémorise donc l'erreur nous-mêmes
+        // au lieu de compter sur un rejet de "await scanner.start()".
         console.error('Erreur scanner :', err);
-        setStatus('Erreur caméra/scanner : ' + err.message, true);
-        stopScan();
+        startupFailed = true;
+        startupErrorMsg = (err && err.message) ? err.message : String(err);
+        resetScanButtons();
       }
     });
 
     try{
       await scanner.start();
-      startBtn.textContent = 'Arrêter le scan';
-      startBtn.classList.add('stop');
-      setStatus('Visez le code-barres, il sera détecté automatiquement…');
+      if (startupFailed){
+        setStatus('Impossible de démarrer le scan : ' + startupErrorMsg, true);
+        scanner = null;
+      } else {
+        startBtn.textContent = 'Arrêter le scan';
+        startBtn.classList.add('stop');
+        setStatus('Visez le code-barres, il sera détecté automatiquement…');
+      }
     }catch(err){
       setStatus('Impossible d\'accéder à la caméra : ' + (err && err.message ? err.message : String(err)), true);
-      scanZoneEl.style.display = 'none';
+      resetScanButtons();
       scanner = null;
     }
+  }
+
+  // Réinitialise juste les boutons/l'affichage de la zone caméra, SANS toucher au
+  // message de statut — pour ne jamais effacer une erreur qu'on vient d'afficher.
+  function resetScanButtons(){
+    startBtn.textContent = 'Démarrer le scan';
+    startBtn.classList.remove('stop');
+    scanZoneEl.style.display = 'none';
   }
 
   function stopScan(){
@@ -558,9 +582,7 @@
       scanner.stop();
       scanner = null;
     }
-    startBtn.textContent = 'Démarrer le scan';
-    startBtn.classList.remove('stop');
-    scanZoneEl.style.display = 'none';
+    resetScanButtons();
     setStatus('');
   }
 
